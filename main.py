@@ -1,3 +1,5 @@
+# UwU
+
 import requests
 import json
 import pyperclip
