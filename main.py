@@ -87,7 +87,7 @@ class FlipFinder:
             "Charitable", "Coldfused", "Smoldering", "Automaton", "Dullish", "Safeguarded", "Edible", "Undead", "Horrendous",
             "Oasis", "Luckier", "Phantom", "Shiny", "Clownfish", "Shark", "Spongy", "Silly", "Dopey", "Waxy", "Luminous",
             "Luxurious", "Tiered", "Chipper", "Corrupted", "Dangerous", "Menacing", "Stellar", "Jaded", "Snowy", "Wither",
-            "Slimy", "Bonkers", "Frosty", "Vicious", "Moonglow", "Zestful", "Vibrant"
+            "Slimy", "Bonkers", "Frosty", "Vicious", "Moonglow", "Zestful", "Vibrant", "Royal"
         ]
         
         # Remove any prefix if present
