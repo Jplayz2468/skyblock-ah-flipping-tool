@@ -75,7 +75,7 @@ class FlipFinder:
             "Heavy", "Light", "Perfect", "Neat", "Elegant", "Fine", "Grand", "Hasty", "Rapid", "Unreal", "Awkward", "Rich",
             "Gilded", "Spiked", "Renowned", "Cubic", "Warped", "Reinforced", "Loving", "Ridiculous", "Necrotic", "Salty",
             "Treacherous", "Stiff", "Lucky", "Very", "Highly", "Extremely", "Absolutely", "Even More", "Smart", "Titanic",
-            "Wise", "Strong", "Unstable", "Superior", "Pure", "Holy", "Candied", "Submerged", "Bizarre", "Mythic"
+            "Wise", "Strong", "Unstable", "Superior", "Pure", "Holy", "Candied", "Submerged", "Bizarre", "Mythic", "Strengthened"
         ]
         
         # Remove any prefix if present
