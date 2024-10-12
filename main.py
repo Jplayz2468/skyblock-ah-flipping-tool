@@ -65,14 +65,36 @@ class FlipFinder:
                 auction.get("highest_bid_amount", 0) == 0)
 
     @staticmethod
-    def get_item_type(item_name):
-        return ' '.join(item_name.split()[:2])
+    def get_base_item_name(item_name):
+        # List of known prefixes (reforges)
+        prefixes = [
+            "Gentle", "Odd", "Fast", "Fair", "Epic", "Sharp", "Heroic", "Spicy", "Legendary", "Dirty", "Fabled", "Suspicious",
+            "Gilded", "Warped", "Withered", "Bulky", "Stellar", "Heated", "Ambered", "Fruitful", "Magnetic", "Fleet", "Mithraic",
+            "Auspicious", "Refined", "Blessed", "Toil", "Bountiful", "Loving", "Ridiculous", "Necrotic", "Giant", "Empowered",
+            "Ancient", "Sweet", "Moil", "Silky", "Bloody", "Shaded", "Precise", "Spiritual", "Headstrong", "Clean", "Fierce",
+            "Heavy", "Light", "Perfect", "Neat", "Elegant", "Fine", "Grand", "Hasty", "Rapid", "Unreal", "Awkward", "Rich",
+            "Gilded", "Spiked", "Renowned", "Cubic", "Warped", "Reinforced", "Loving", "Ridiculous", "Necrotic", "Salty",
+            "Treacherous", "Stiff", "Lucky", "Very", "Highly", "Extremely", "Absolutely", "Even More", "Smart", "Titanic",
+            "Wise", "Strong", "Unstable", "Superior", "Pure", "Holy", "Candied", "Submerged", "Bizarre", "Mythic"
+        ]
+        
+        # Remove any prefix if present
+        for prefix in prefixes:
+            if item_name.startswith(prefix + " "):
+                item_name = item_name[len(prefix) + 1:]
+                break
+        
+        # Remove stars and anything in brackets
+        item_name = item_name.split("[")[0].strip()
+        item_name = ''.join(char for char in item_name if char not in '✪➊➋➌➍➎')
+        
+        return item_name.strip()
 
     def filter_auctions(self, auctions):
         return [
             auction for auction in auctions
             if (self.is_active_bin_auction(auction) and
-                self.params["min_item_price"] <= auction.get("starting_bid", 0) <= self.params["max_buy_price"] and
+                auction.get("starting_bid", 0) <= self.params["max_buy_price"] and
                 "attribute shard" not in auction.get("item_name", "").lower())
         ]
 
@@ -84,9 +106,10 @@ class FlipFinder:
 
         item_groups = defaultdict(list)
         for auction in filtered_auctions:
-            item_groups[auction["item_name"]].append(auction)
+            base_item_name = self.get_base_item_name(auction["item_name"])
+            item_groups[base_item_name].append(auction)
 
-        for item_name, auctions in item_groups.items():
+        for base_item_name, auctions in item_groups.items():
             if len(auctions) < self.params["min_sales_volume"]:
                 continue
 
@@ -101,12 +124,13 @@ class FlipFinder:
                 profit_margin <= self.params["max_profit_margin"] and
                 lowest_auction["uuid"] not in suggested_auction_ids):
 
-                item_type = self.get_item_type(item_name)
+                item_type = ' '.join(base_item_name.split()[:2])
                 if item_type != last_suggested_item_type:
                     suggested_auction_ids.add(lowest_auction["uuid"])
                     last_suggested_item_type = item_type
                     return {
-                        "item": item_name,
+                        "item": lowest_auction["item_name"],
+                        "base_item_name": base_item_name,
                         "lowest_price": lowest_auction["starting_bid"],
                         "second_lowest_price": second_lowest_price,
                         "potential_profit": potential_profit,
@@ -125,6 +149,7 @@ def on_press(key):
 def print_flip_info(flip):
     print(f"\nBest flip found:")
     print(f"Item: {flip['item']}")
+    print(f"Base Item Name: {flip['base_item_name']}")
     print(f"Lowest price: {flip['lowest_price']:,}")
     print(f"Second lowest price: {flip['second_lowest_price']:,}")
     print(f"Potential profit: {flip['potential_profit']:,}")
@@ -145,7 +170,6 @@ def main():
     params = {
         "threshold_percentage": float(input("Enter the minimum price difference threshold (default 20%): ") or 20),
         "min_profit": int(input("Enter the minimum profit in coins (default 10000): ") or 10000),
-        "min_item_price": int(input("Enter the minimum item price in coins (default 100000): ") or 100000),
         "max_buy_price": int(input("Enter the maximum buy price in coins (default 1000000): ") or 1000000),
         "max_profit_margin": float(input("Enter the maximum profit margin percentage (default 50%): ") or 50),
         "min_sales_volume": int(input("Enter the minimum sales volume (default 5): ") or 5)
