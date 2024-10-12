@@ -1,5 +1,4 @@
 requests
-json
 pyperclip
 datetime
 pynput
