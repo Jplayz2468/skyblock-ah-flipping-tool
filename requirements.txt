@@ -1,0 +1,10 @@
+requests
+json
+pyperclip
+datetime
+pynput
+winsound
+threading
+logging
+concurrent.futures
+collections
