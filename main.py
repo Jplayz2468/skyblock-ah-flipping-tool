@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Constants
 BASE_URL = "https://api.hypixel.net"
-REFRESH_INTERVAL = 5  # seconds
+REFRESH_INTERVAL = 1  # seconds
 
 # Global variables
 suggested_auction_ids = set()
