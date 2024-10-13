@@ -1,0 +1,37 @@
+name: Build and Package
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+        pip install pyperclip
+        pip install pynput
+        pip install pyinstaller
+        pip install concurrent-futures-extra
+
+    - name: Run package script
+      run: python package.py
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: skyblock_ah_flipper
+        path: dist/skyblock_ah_flipper.exe
