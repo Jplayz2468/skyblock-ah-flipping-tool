@@ -26,12 +26,22 @@ jobs:
     - name: Run package script
       run: python package.py
 
-    - name: List dist directory contents
-      run: dir dist
+    - name: Move executable to root directory
+      run: |
+        move dist\*.exe skyblock_ah_flipper.exe
+        if not exist skyblock_ah_flipper.exe (echo Executable not found && exit 1)
 
-    - name: Upload artifact
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add skyblock_ah_flipper.exe
+        git commit -m "Update executable" -a || echo "No changes to commit"
+        git push
+
+    - name: Upload artifact (as backup)
       uses: actions/upload-artifact@v3
       with:
         name: skyblock_ah_flipper
-        path: dist/*.exe
+        path: skyblock_ah_flipper.exe
         if-no-files-found: error
