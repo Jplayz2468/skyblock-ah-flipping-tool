@@ -11,27 +11,27 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests
-        pip install pyperclip
-        pip install pynput
-        pip install pyinstaller
-        pip install concurrent-futures-extra
+        pip install requests pyperclip pynput pyinstaller
 
     - name: Run package script
       run: python package.py
 
+    - name: List dist directory contents
+      run: dir dist
+
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: skyblock_ah_flipper
-        path: dist/skyblock_ah_flipper.exe
+        path: dist/*.exe
+        if-no-files-found: error
