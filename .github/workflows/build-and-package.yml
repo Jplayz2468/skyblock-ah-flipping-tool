@@ -16,12 +16,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
+        python-version: '3.11'  # Specify Python 3.11 for compatibility
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests pyperclip pynput pyinstaller concurrent-futures-extra
+        pip install requests pyperclip pynput pyinstaller
 
     - name: Run package script
       run: python package.py
