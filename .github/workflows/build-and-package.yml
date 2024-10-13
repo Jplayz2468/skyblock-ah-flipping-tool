@@ -16,7 +16,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'  # Specify Python 3.11 for compatibility
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
@@ -26,9 +26,12 @@ jobs:
     - name: Run package script
       run: python package.py
 
+    - name: List dist directory contents
+      run: dir dist
+
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: skyblock_ah_flipper
-        path: dist/skyblock_ah_flipper.exe
+        path: dist/*.exe
         if-no-files-found: error
