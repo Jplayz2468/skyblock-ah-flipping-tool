@@ -18,8 +18,6 @@ BASE_URL = "https://api.hypixel.net"
 REFRESH_INTERVAL = 1  # seconds
 
 # Global variables
-suggested_auction_ids = set()
-last_suggested_item_type = None
 last_flip_time = 0
 
 class AuctionFetcher:
@@ -67,7 +65,7 @@ class FlipFinder:
     @staticmethod
     def get_base_item_name(item_name):
         # List of known prefixes (reforges)
-        prefixes = ["Greater Spook", "Lustrous", "Glacial", "Fanged", "Jerry's", "Gentle", "Odd", "Fast", "Fair", "Epic", "Sharp", "Heroic", "Spicy", "Legendary", "Dirty", "Fabled", "Suspicious","Gilded", "Warped", "Withered", "Bulky", "Stellar", "Heated", "Ambered", "Fruitful", "Magnetic", "Fleet", "Mithraic","Auspicious", "Refined", "Blessed", "Toil", "Bountiful", "Loving", "Ridiculous", "Necrotic", "Giant", "Empowered","Ancient", "Sweet", "Moil", "Silky", "Bloody", "Shaded", "Precise", "Spiritual", "Headstrong", "Clean", "Fierce","Heavy", "Light", "Perfect", "Neat", "Elegant", "Fine", "Grand", "Hasty", "Rapid", "Unreal", "Awkward", "Rich","Spiked", "Renowned", "Cubic", "Reinforced", "Salty", "Treacherous", "Stiff", "Lucky", "Very", "Highly", "Extremely","Absolutely", "Even More", "Smart", "Titanic", "Wise", "Strong", "Unstable", "Superior", "Pure", "Holy", "Candied","Submerged", "Bizarre", "Mythic", "Strengthened", "Jaded", "Zealous", "Godly", "Demonic", "Forceful", "Hurtful", "Strong", "Unpleasant", "Keen", "Pretty", "Shiny", "Simple","Strange", "Vivid", "Bizarre", "Itchy", "Ominous", "Pleasant", "Pretty", "Shiny", "Simple", "Strange", "Vivid","Awful", "Lush", "Pitiful", "Raider's", "Refurbished", "Festive", "Green Thumb", "Rooted", "Blooming", "Earthy","Mossy", "Milky", "Signature", "Unyielding", "Dirty", "Stranded", "Chomp", "Pitchin'", "Glistening", "Sparkling","Prospector's", "Great", "Rugged", "Rustic", "Bustling", "Excellent", "Sturdy", "Fortified", "Waxed", "Tempered","Honored", "Molten", "Hyper", "Frosted", "Burning", "Flaky", "Stained", "Icy", "Faceted", "Exquisite", "Thiccc","Charitable", "Coldfused", "Smoldering", "Automaton", "Dullish", "Safeguarded", "Edible", "Undead", "Horrendous","Oasis", "Luckier", "Phantom", "Shiny", "Clownfish", "Shark", "Spongy", "Silly", "Dopey", "Waxy", "Luminous","Luxurious", "Tiered", "Chipper", "Corrupted", "Dangerous", "Menacing", "Stellar", "Jaded", "Snowy", "Wither","Slimy", "Bonkers", "Frosty", "Vicious", "Moonglow", "Zestful", "Vibrant", "Royal", "Blood-Soaked", "Double-Bit"]
+        prefixes = ["Greater Spook","Lustrous","Glacial","Fanged","Jerry's","Gentle", "Odd", "Fast", "Fair", "Epic", "Sharp", "Heroic", "Spicy", "Legendary", "Dirty", "Fabled", "Suspicious","Gilded", "Warped", "Withered", "Bulky", "Stellar", "Heated", "Ambered", "Fruitful", "Magnetic", "Fleet", "Mithraic","Auspicious", "Refined", "Blessed", "Toil", "Bountiful", "Loving", "Ridiculous", "Necrotic", "Giant", "Empowered","Ancient", "Sweet", "Moil", "Silky", "Bloody", "Shaded", "Precise", "Spiritual", "Headstrong", "Clean", "Fierce","Heavy", "Light", "Perfect", "Neat", "Elegant", "Fine", "Grand", "Hasty", "Rapid", "Unreal", "Awkward", "Rich","Spiked", "Renowned", "Cubic", "Reinforced", "Salty", "Treacherous", "Stiff", "Lucky", "Very", "Highly", "Extremely","Absolutely", "Even More", "Smart", "Titanic", "Wise", "Strong", "Unstable", "Superior", "Pure", "Holy", "Candied","Submerged", "Bizarre", "Mythic", "Strengthened", "Jaded", "Zealous", "Godly", "Demonic", "Forceful", "Hurtful", "Strong", "Unpleasant", "Keen", "Pretty", "Shiny", "Simple","Strange", "Vivid", "Bizarre", "Itchy", "Ominous", "Pleasant", "Pretty", "Shiny", "Simple", "Strange", "Vivid","Awful", "Lush", "Pitiful", "Raider's", "Refurbished", "Festive", "Green Thumb", "Rooted", "Blooming", "Earthy","Mossy", "Milky", "Signature", "Unyielding", "Dirty", "Stranded", "Chomp", "Pitchin'", "Glistening", "Sparkling","Prospector's", "Great", "Rugged", "Rustic", "Bustling", "Excellent", "Sturdy", "Fortified", "Waxed", "Tempered","Honored", "Molten", "Hyper", "Frosted", "Burning", "Flaky", "Stained", "Icy", "Faceted", "Exquisite", "Thiccc","Charitable", "Coldfused", "Smoldering", "Automaton", "Dullish", "Safeguarded", "Edible", "Undead", "Horrendous","Oasis", "Luckier", "Phantom", "Shiny", "Clownfish", "Shark", "Spongy", "Silly", "Dopey", "Waxy", "Luminous","Luxurious", "Tiered", "Chipper", "Corrupted", "Dangerous", "Menacing", "Stellar", "Jaded", "Snowy", "Wither","Slimy", "Bonkers", "Frosty", "Vicious", "Moonglow", "Zestful", "Vibrant", "Royal", "Blood-Soaked"]
         
         # Remove any prefix if present
         for prefix in prefixes:
@@ -90,7 +88,6 @@ class FlipFinder:
         ]
 
     def find_best_flip(self):
-        global suggested_auction_ids, last_suggested_item_type
 
         all_auctions = self.fetcher.fetch_all_auctions()
         filtered_auctions = self.filter_auctions(all_auctions)
@@ -113,13 +110,8 @@ class FlipFinder:
 
             if (potential_profit >= self.params["min_profit"] and
                 profit_margin >= self.params["threshold_percentage"] and
-                profit_margin <= self.params["max_profit_margin"] and
-                lowest_auction["uuid"] not in suggested_auction_ids):
+                profit_margin <= self.params["max_profit_margin"]):
 
-                item_type = ' '.join(base_item_name.split()[:2])
-                if item_type != last_suggested_item_type:
-                    suggested_auction_ids.add(lowest_auction["uuid"])
-                    last_suggested_item_type = item_type
                     return {
                         "item": lowest_auction["item_name"],
                         "base_item_name": base_item_name,
