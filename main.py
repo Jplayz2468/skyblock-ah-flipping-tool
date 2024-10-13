@@ -15,12 +15,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Constants
 BASE_URL = "https://api.hypixel.net"
-REFRESH_KEY = '`'
+REFRESH_INTERVAL = 5  # seconds
 
 # Global variables
-should_refresh = threading.Event()
 suggested_auction_ids = set()
 last_suggested_item_type = None
+last_flip_time = 0
 
 class AuctionFetcher:
     def __init__(self):
@@ -132,13 +132,8 @@ class FlipFinder:
 
         return None
 
-def on_press(key):
-    if getattr(key, 'char', None) == REFRESH_KEY:
-        should_refresh.set()
-        logging.debug("Refresh key pressed")
-
 def print_flip_info(flip):
-    print(f"\nBest flip found:")
+    print(f"\nBest flip found at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}:")
     print(f"Item: {flip['item']}")
     print(f"Base Item Name: {flip['base_item_name']}")
     print(f"Lowest price: {flip['lowest_price']:,}")
@@ -155,8 +150,7 @@ def print_flip_info(flip):
     print("Consider checking external price sources for additional verification.")
 
 def main():
-    print("Starting Hypixel BIN Flip Calculator...")
-    print(f"Press '{REFRESH_KEY}' to refresh auctions.")
+    print("Starting Hypixel BIN Flip Calculator (Continuous Mode)...")
 
     params = {
         "threshold_percentage": float(input("Enter the minimum price difference threshold (default 20%): ") or 20),
@@ -168,20 +162,25 @@ def main():
 
     flip_finder = FlipFinder(params)
 
-    keyboard.Listener(on_press=on_press).start()
+    print("\nStarting continuous flip search. Press Ctrl+C to stop.")
 
-    while True:
-        if should_refresh.is_set():
-            print(f"\nFetching auctions at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
-            best_flip = flip_finder.find_best_flip()
-            if best_flip:
-                print_flip_info(best_flip)
-                winsound.Beep(1000, 500)
-            else:
-                print("No suitable flips found.")
-            should_refresh.clear()
+    last_flip_time = 0  # Initialize last_flip_time here
 
-        time.sleep(0.5)
+    try:
+        while True:
+            current_time = time.time()
+            if current_time - last_flip_time >= REFRESH_INTERVAL:
+                print(f"\nFetching auctions at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
+                best_flip = flip_finder.find_best_flip()
+                if best_flip:
+                    print_flip_info(best_flip)
+                    winsound.Beep(1000, 500)  # Beep when a flip is found
+                    last_flip_time = current_time
+                else:
+                    print("No suitable flips found.")
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        print("\nStopping the flip calculator. Thank you for using!")
 
 if __name__ == "__main__":
     main()
