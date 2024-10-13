@@ -26,26 +26,12 @@ jobs:
     - name: Run package script
       run: python package.py
 
-    - name: Move executable to root directory
-      shell: pwsh
-      run: |
-        Move-Item -Path "dist\*.exe" -Destination "skyblock_ah_flipper.exe" -Force
-        if (-not (Test-Path "skyblock_ah_flipper.exe")) {
-          Write-Error "Executable not found"
-          exit 1
-        }
+    - name: List contents of dist directory
+      run: Get-ChildItem -Path dist | Format-Table Name, Length -AutoSize
 
-    - name: Commit and push if changed
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add skyblock_ah_flipper.exe
-        git commit -m "Update executable" -a || echo "No changes to commit"
-        git push
-
-    - name: Upload artifact (as backup)
+    - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: skyblock_ah_flipper
-        path: skyblock_ah_flipper.exe
+        path: dist/*.exe
         if-no-files-found: error
