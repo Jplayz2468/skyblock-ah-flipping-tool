@@ -112,6 +112,7 @@ class FlipFinder:
             profit_margin = (potential_profit / lowest_auction["starting_bid"]) * 100
 
             if (potential_profit >= self.params["min_profit"] and
+                profit_margin >= self.params["threshold_percentage"] and
                 profit_margin <= self.params["max_profit_margin"] and
                 lowest_auction["uuid"] not in suggested_auction_ids):
 
