@@ -42,3 +42,7 @@ This version of the tool is (current) only for beta testers and developers, and 
 If you encounter any issues or have questions, please open an issue on the GitHub repository.
 
 Happy flipping!
+
+## Test API Key
+
+MazH2JtZeLCxIydNaWSaqHEpZvy3p1TS
