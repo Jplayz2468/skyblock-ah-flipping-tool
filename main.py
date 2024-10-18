@@ -7,7 +7,7 @@ import winsound
 import logging
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from collections import defaultdict
+from collections import defaultdict, deque
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -67,6 +67,7 @@ class FlipFinder:
         self.params = params
         self.auction_fetcher = AuctionFetcher()
         self.price_fetcher = PriceFetcher()
+        self.processed_items = set()
 
     @staticmethod
     def is_active_bin_auction(auction):
@@ -94,7 +95,8 @@ class FlipFinder:
             auction for auction in auctions
             if (self.is_active_bin_auction(auction) and
                 auction.get("starting_bid", 0) <= self.params["max_buy_price"] and
-                "attribute shard" not in auction.get("item_name", "").lower())
+                "attribute shard" not in auction.get("item_name", "").lower() and
+                self.get_clean_item_name(auction["item_name"]) not in self.processed_items)
         ]
 
     def find_best_flip(self):
@@ -110,6 +112,8 @@ class FlipFinder:
         best_profit = 0
 
         for clean_item_name, auctions in item_groups.items():
+            self.processed_items.add(clean_item_name)  # Mark this item as processed
+
             if len(auctions) < self.params["min_sales_volume"]:
                 continue
 
@@ -125,29 +129,29 @@ class FlipFinder:
                 profit_margin <= self.params["max_profit_margin"] and
                 potential_profit > best_profit):
 
+                # Check against 3-day average before finalizing the best flip
+                price_data = self.price_fetcher.fetch_price_data(clean_item_name)
+                if price_data and "three_day_avg_lowest_bin" in price_data:
+                    three_day_avg = price_data["three_day_avg_lowest_bin"]
+                    if second_lowest_price > three_day_avg * 1.2:  # Price is 20% higher than 3-day average
+                        logging.info(f"Flip for {clean_item_name} rejected due to inflated price compared to 3-day average.")
+                        continue
+                else:
+                    logging.warning(f"Could not fetch 3-day average for {clean_item_name}.")
+                    continue
+
                 best_profit = potential_profit
                 best_flip = {
                     "item": lowest_auction["item_name"],
                     "clean_item_name": clean_item_name,
                     "lowest_price": lowest_auction["starting_bid"],
                     "second_lowest_price": second_lowest_price,
+                    "three_day_avg": three_day_avg,
                     "potential_profit": potential_profit,
                     "profit_margin": profit_margin,
                     "auction_id": lowest_auction["uuid"],
                     "sales_volume": len(auctions)
                 }
-
-        if best_flip:
-            # Check against 3-day average
-            price_data = self.price_fetcher.fetch_price_data(best_flip["clean_item_name"])
-            if price_data and "three_day_avg_lowest_bin" in price_data:
-                three_day_avg = price_data["three_day_avg_lowest_bin"]
-                if best_flip["second_lowest_price"] > three_day_avg * 1.2:  # Price is 20% higher than 3-day average
-                    logging.info(f"Flip for {best_flip['clean_item_name']} rejected due to inflated price compared to 3-day average.")
-                    return None
-                best_flip["three_day_avg"] = three_day_avg
-            else:
-                logging.warning(f"Could not fetch 3-day average for {best_flip['clean_item_name']}.")
 
         return best_flip
 
@@ -157,8 +161,7 @@ def print_flip_info(flip):
     print(f"Clean Item Name: {flip['clean_item_name']}")
     print(f"Lowest price: {flip['lowest_price']:,}")
     print(f"Second lowest price: {flip['second_lowest_price']:,}")
-    if 'three_day_avg' in flip:
-        print(f"3-day average lowest BIN: {flip['three_day_avg']:,.2f}")
+    print(f"3-day average lowest BIN: {flip['three_day_avg']:,.2f}")
     print(f"Potential profit: {flip['potential_profit']:,}")
     print(f"Profit margin: {flip['profit_margin']:.2f}%")
     print(f"Sales volume: {flip['sales_volume']}")
