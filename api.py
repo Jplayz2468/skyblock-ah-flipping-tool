@@ -1,6 +1,7 @@
 import requests
 import time
 import json
+import os
 from datetime import datetime, timedelta
 from collections import defaultdict
 from flask import Flask, jsonify, render_template_string
@@ -49,20 +50,26 @@ def process_auctions():
 
         current_time = datetime.now()
         
-        # Update data with new prices
+        # Update data with new prices while preserving existing data
         for item_id, price in current_data.items():
-            # Remove old prices before adding new one
-            if item_id in data:
-                data[item_id]["prices"] = [
-                    (t, p) for t, p in data[item_id]["prices"]
-                    if (current_time - t).total_seconds() < 259200  # 3 days in seconds
-                ]
+            if item_id not in data:
+                data[item_id] = {"prices": [], "last_updated": None}
+            
+            # Keep existing prices that are less than 3 days old
+            data[item_id]["prices"] = [
+                (t, p) for t, p in data[item_id]["prices"]
+                if (current_time - t).total_seconds() < 259200  # 3 days in seconds
+            ]
             data[item_id]["prices"].append((current_time, price))
             data[item_id]["last_updated"] = current_time
 
         # Clean up items with no recent data
         items_to_remove = []
-        for item_id in data:
+        for item_id in list(data.keys()):
+            data[item_id]["prices"] = [
+                (t, p) for t, p in data[item_id]["prices"]
+                if (current_time - t).total_seconds() < 259200
+            ]
             if not data[item_id]["prices"]:
                 items_to_remove.append(item_id)
         
@@ -70,12 +77,22 @@ def process_auctions():
             del data[item_id]
 
         print(f"Processed {len(current_data)} items.")
+        save_data()  # Save after each successful processing
     except Exception as e:
         print(f"Error processing auctions: {str(e)}")
 
 def save_data():
     print("Saving data...")
     try:
+        # Create a backup of the existing file
+        if os.path.exists(DATA_FILE):
+            backup_file = f"{DATA_FILE}.backup"
+            try:
+                os.replace(DATA_FILE, backup_file)
+            except Exception as e:
+                print(f"Error creating backup: {str(e)}")
+
+        # Save new data
         with open(DATA_FILE, "w") as f:
             serialized_data = {}
             for item_id, item_data in data.items():
@@ -84,39 +101,96 @@ def save_data():
                     "last_updated": item_data["last_updated"].isoformat() if item_data["last_updated"] else None
                 }
             json.dump(serialized_data, f)
+
+        # Remove backup if save was successful
+        if os.path.exists(f"{DATA_FILE}.backup"):
+            os.remove(f"{DATA_FILE}.backup")
     except Exception as e:
         print(f"Error saving data: {str(e)}")
+        # Restore from backup if save failed
+        if os.path.exists(f"{DATA_FILE}.backup"):
+            try:
+                os.replace(f"{DATA_FILE}.backup", DATA_FILE)
+            except Exception as backup_e:
+                print(f"Error restoring backup: {str(backup_e)}")
 
 def load_data():
     global data
+    if not os.path.exists(DATA_FILE):
+        print("No existing data file found. Starting fresh.")
+        return
+    
     try:
         with open(DATA_FILE, "r") as f:
             loaded_data = json.load(f)
             current_time = datetime.now()
             
             for item_id, item_data in loaded_data.items():
-                # Only load data that's less than 3 days old
-                prices = [
-                    (datetime.fromisoformat(t), p) 
-                    for t, p in item_data["prices"]
-                    if (current_time - datetime.fromisoformat(t)).total_seconds() < 259200
-                ]
+                # Convert stored timestamps back to datetime objects
+                prices = []
+                try:
+                    prices = [
+                        (datetime.fromisoformat(t), p) 
+                        for t, p in item_data["prices"]
+                        if (current_time - datetime.fromisoformat(t)).total_seconds() < 259200
+                    ]
+                except Exception as e:
+                    print(f"Error processing prices for {item_id}: {str(e)}")
+                    continue
                 
                 if prices:  # Only add items that have recent data
-                    data[item_id]["prices"] = prices
-                    data[item_id]["last_updated"] = datetime.fromisoformat(item_data["last_updated"]) if item_data["last_updated"] else None
+                    data[item_id] = {
+                        "prices": prices,
+                        "last_updated": datetime.fromisoformat(item_data["last_updated"]) if item_data["last_updated"] else None
+                    }
                     
-        print("Data loaded successfully.")
-    except FileNotFoundError:
-        print("No existing data file found. Starting fresh.")
+        print(f"Successfully loaded data for {len(data)} items.")
     except Exception as e:
         print(f"Error loading data: {str(e)}")
+        # Try to load from backup if main file is corrupted
+        if os.path.exists(f"{DATA_FILE}.backup"):
+            print("Attempting to load from backup file...")
+            try:
+                with open(f"{DATA_FILE}.backup", "r") as f:
+                    loaded_data = json.load(f)
+                    current_time = datetime.now()
+                    
+                    for item_id, item_data in loaded_data.items():
+                        prices = [
+                            (datetime.fromisoformat(t), p) 
+                            for t, p in item_data["prices"]
+                            if (current_time - datetime.fromisoformat(t)).total_seconds() < 259200
+                        ]
+                        
+                        if prices:
+                            data[item_id] = {
+                                "prices": prices,
+                                "last_updated": datetime.fromisoformat(item_data["last_updated"]) if item_data["last_updated"] else None
+                            }
+                    print(f"Successfully loaded backup data for {len(data)} items.")
+            except Exception as backup_e:
+                print(f"Error loading backup: {str(backup_e)}")
+                print("Starting fresh due to data load failures.")
+                data.clear()
 
 def background_task():
+    initial_delay = 0  # Start immediately if no data exists
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                loaded_data = json.load(f)
+                if loaded_data:
+                    initial_delay = 300  # Wait 5 minutes if we have existing data
+        except Exception:
+            initial_delay = 0
+    
+    if initial_delay:
+        print(f"Existing data found, waiting {initial_delay} seconds before first update...")
+        time.sleep(initial_delay)
+    
     while True:
         try:
             process_auctions()
-            save_data()
             print("Sleeping for 5 minutes...")
             time.sleep(300)  # Sleep for 5 minutes
         except Exception as e:
