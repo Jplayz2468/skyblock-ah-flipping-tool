@@ -67,6 +67,7 @@ class FlipFinder:
         self.auction_fetcher = AuctionFetcher()
         self.price_fetcher = PriceFetcher()
         self.suggested_auctions = set()
+        self.inflated_items = set()  # New set to track inflated items
 
     @staticmethod
     def is_active_bin_auction(auction):
@@ -92,12 +93,24 @@ class FlipFinder:
         return item_name.strip()
 
     def filter_auctions(self, auctions):
-        return [
-            auction for auction in auctions
-            if (self.is_active_bin_auction(auction) and
-                auction.get("starting_bid", 0) <= self.params["max_buy_price"] and
-                "attribute shard" not in auction.get("item_name", "").lower())
-        ]
+        filtered = []
+        for auction in auctions:
+            if not self.is_active_bin_auction(auction):
+                continue
+            
+            if auction.get("starting_bid", 0) > self.params["max_buy_price"]:
+                continue
+                
+            if "attribute shard" in auction.get("item_name", "").lower():
+                continue
+                
+            clean_name = self.get_clean_item_name(auction["item_name"])
+            if clean_name in self.inflated_items:  # Skip if item is known to be inflated
+                continue
+                
+            filtered.append(auction)
+        
+        return filtered
 
     def find_best_flip(self):
         all_auctions = self.auction_fetcher.fetch_all_auctions()
@@ -136,32 +149,34 @@ class FlipFinder:
 
             if (potential_profit >= self.params["min_profit"] and
                 profit_margin >= self.params["threshold_percentage"] and
-                profit_margin <= self.params["max_profit_margin"] and
-                potential_profit > best_profit):
+                profit_margin <= self.params["max_profit_margin"]):
 
                 price_data = self.price_fetcher.fetch_price_data(clean_item_name)
                 if price_data and "three_day_avg_lowest_bin" in price_data:
                     three_day_avg = price_data["three_day_avg_lowest_bin"]
                     if second_lowest_price > three_day_avg * 1.2:
-                        logging.info(f"Flip for {clean_item_name} rejected due to inflated price compared to 3-day average.")
+                        # Add to inflated items set instead of just rejecting
+                        self.inflated_items.add(clean_item_name)
+                        logging.info(f"Added {clean_item_name} to inflated items list.")
                         continue
                 else:
                     logging.warning(f"Could not fetch 3-day average for {clean_item_name}.")
                     continue
 
-                best_profit = potential_profit
-                best_flip = {
-                    "item": lowest_auction["item_name"],
-                    "clean_item_name": clean_item_name,
-                    "lowest_price": lowest_auction["starting_bid"],
-                    "second_lowest_price": second_lowest_price,
-                    "three_day_avg": three_day_avg,
-                    "potential_profit": potential_profit,
-                    "profit_margin": profit_margin,
-                    "auction_id": lowest_auction["uuid"],
-                    "sales_volume": len(auctions),
-                    "auctioneer": lowest_auction["auctioneer"]
-                }
+                if potential_profit > best_profit:
+                    best_profit = potential_profit
+                    best_flip = {
+                        "item": lowest_auction["item_name"],
+                        "clean_item_name": clean_item_name,
+                        "lowest_price": lowest_auction["starting_bid"],
+                        "second_lowest_price": second_lowest_price,
+                        "three_day_avg": three_day_avg,
+                        "potential_profit": potential_profit,
+                        "profit_margin": profit_margin,
+                        "auction_id": lowest_auction["uuid"],
+                        "sales_volume": len(auctions),
+                        "auctioneer": lowest_auction["auctioneer"]
+                    }
 
         if best_flip:
             self.suggested_auctions.add((best_flip["auctioneer"], best_flip["clean_item_name"]))
