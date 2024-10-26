@@ -67,7 +67,8 @@ class FlipFinder:
         self.auction_fetcher = AuctionFetcher()
         self.price_fetcher = PriceFetcher()
         self.suggested_auctions = set()
-        self.inflated_items = set()  # New set to track inflated items
+        self.inflated_items = set()  # Items with inflated prices
+        self.avg_price_rejected_items = set()  # New set to track items rejected due to 3-day average
 
     @staticmethod
     def is_active_bin_auction(auction):
@@ -105,7 +106,7 @@ class FlipFinder:
                 continue
                 
             clean_name = self.get_clean_item_name(auction["item_name"])
-            if clean_name in self.inflated_items:  # Skip if item is known to be inflated
+            if clean_name in self.inflated_items or clean_name in self.avg_price_rejected_items:  # Check both sets
                 continue
                 
             filtered.append(auction)
@@ -155,9 +156,10 @@ class FlipFinder:
                 if price_data and "three_day_avg_lowest_bin" in price_data:
                     three_day_avg = price_data["three_day_avg_lowest_bin"]
                     if second_lowest_price > three_day_avg * 1.2:
-                        # Add to inflated items set instead of just rejecting
+                        # Add to both sets
                         self.inflated_items.add(clean_item_name)
-                        logging.info(f"Added {clean_item_name} to inflated items list.")
+                        self.avg_price_rejected_items.add(clean_item_name)
+                        logging.info(f"Added {clean_item_name} to rejected items lists due to high price compared to 3-day average.")
                         continue
                 else:
                     logging.warning(f"Could not fetch 3-day average for {clean_item_name}.")
