@@ -10,16 +10,33 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('flip_finder.log')
+    ]
+)
 
 # Constants
 HYPIXEL_API_BASE_URL = "https://api.hypixel.net"
 PRICE_API_BASE_URL = "http://195.201.18.228:5000/item"
 API_KEY = "MazH2JtZeLCxIydNaWSaqHEpZvy3p1TS"
 
+# Known generic item names to ignore
+IGNORED_ITEMS = {
+    "Helmet", "Chestplate", "Leggings", "Boots",
+    "Sword", "Bow", "Rod", "Pickaxe", "Axe", "Shovel",
+    "Hoe", "Shears", "Drill", "Generator"
+}
+
 class AuctionFetcher:
     def __init__(self):
         self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
 
     def fetch_page(self, page):
         try:
@@ -50,15 +67,27 @@ class AuctionFetcher:
 class PriceFetcher:
     def __init__(self):
         self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        self.failed_items = set()  # Track items that failed price fetch
 
     def fetch_price_data(self, item_name):
+        if item_name in self.failed_items or item_name in IGNORED_ITEMS:
+            return None
+            
         try:
             url = f"{PRICE_API_BASE_URL}/{API_KEY}/{item_name}"
             response = self.session.get(url, timeout=5)
             response.raise_for_status()
             return response.json()
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                self.failed_items.add(item_name)  # Add to failed items set
+            logging.debug(f"Error fetching price data for {item_name}: {e}")  # Changed to debug
+            return None
         except requests.RequestException as e:
-            logging.error(f"Error fetching price data for {item_name}: {e}")
+            logging.debug(f"Error fetching price data for {item_name}: {e}")  # Changed to debug
             return None
 
 class FlipFinder:
@@ -67,8 +96,10 @@ class FlipFinder:
         self.auction_fetcher = AuctionFetcher()
         self.price_fetcher = PriceFetcher()
         self.suggested_auctions = set()
-        self.inflated_items = set()  # Items with inflated prices
-        self.avg_price_rejected_items = set()  # New set to track items rejected due to 3-day average
+        self.inflated_items = set()
+        self.avg_price_rejected_items = set()
+        self.last_scan_time = 0
+        self.scan_cooldown = 1  # Minimum seconds between scans
 
     @staticmethod
     def is_active_bin_auction(auction):
@@ -79,7 +110,34 @@ class FlipFinder:
 
     @staticmethod
     def get_clean_item_name(item_name):
-        prefixes = ["Brilliant", "Deadly", "Robust", "Blended", "Lumberjack's", "Dimensional", "Greater Spook", "Lustrous", "Glacial", "Fanged", "Jerry's", "Gentle", "Odd", "Fast", "Fair", "Epic", "Sharp", "Heroic", "Spicy", "Legendary", "Dirty", "Fabled", "Suspicious", "Gilded", "Warped", "Withered", "Bulky", "Stellar", "Heated", "Ambered", "Fruitful", "Magnetic", "Fleet", "Mithraic", "Auspicious", "Refined", "Blessed", "Toil", "Bountiful", "Loving", "Ridiculous", "Necrotic", "Giant", "Empowered", "Ancient", "Sweet", "Moil", "Silky", "Bloody", "Shaded", "Precise", "Spiritual", "Headstrong", "Clean", "Fierce", "Heavy", "Light", "Perfect", "Neat", "Elegant", "Fine", "Grand", "Hasty", "Rapid", "Unreal", "Awkward", "Rich", "Spiked", "Renowned", "Cubic", "Reinforced", "Salty", "Treacherous", "Stiff", "Lucky", "Very", "Highly", "Extremely", "Absolutely", "Even More", "Smart", "Titanic", "Wise", "Strong", "Unstable", "Superior", "Pure", "Holy", "Candied", "Submerged", "Bizarre", "Mythic", "Strengthened", "Jaded", "Zealous", "Godly", "Demonic", "Forceful", "Hurtful", "Strong", "Unpleasant", "Keen", "Pretty", "Shiny", "Simple", "Strange", "Vivid", "Bizarre", "Itchy", "Ominous", "Pleasant", "Pretty", "Shiny", "Simple", "Strange", "Vivid", "Awful", "Lush", "Pitiful", "Raider's", "Refurbished", "Festive", "Green Thumb", "Rooted", "Blooming", "Earthy", "Mossy", "Milky", "Signature", "Unyielding", "Dirty", "Stranded", "Chomp", "Pitchin'", "Glistening", "Sparkling", "Prospector's", "Great", "Rugged", "Rustic", "Bustling", "Excellent", "Sturdy", "Fortified", "Waxed", "Tempered", "Honored", "Molten", "Hyper", "Frosted", "Burning", "Flaky", "Stained", "Icy", "Faceted", "Exquisite", "Thiccc", "Charitable", "Coldfused", "Smoldering", "Automaton", "Dullish", "Safeguarded", "Edible", "Undead", "Horrendous", "Oasis", "Luckier", "Phantom", "Shiny", "Clownfish", "Shark", "Spongy", "Silly", "Dopey", "Waxy", "Luminous", "Luxurious", "Tiered", "Chipper", "Corrupted", "Dangerous", "Menacing", "Stellar", "Jaded", "Snowy", "Wither", "Slimy", "Bonkers", "Frosty", "Vicious", "Moonglow", "Zestful", "Vibrant", "Royal", "Blood-Soaked", "Double-Bit"]
+        prefixes = ["Brilliant", "Deadly", "Robust", "Blended", "Lumberjack's", "Dimensional", 
+                   "Greater Spook", "Lustrous", "Glacial", "Fanged", "Jerry's", "Gentle", 
+                   "Odd", "Fast", "Fair", "Epic", "Sharp", "Heroic", "Spicy", "Legendary", 
+                   "Dirty", "Fabled", "Suspicious", "Gilded", "Warped", "Withered", "Bulky", 
+                   "Stellar", "Heated", "Ambered", "Fruitful", "Magnetic", "Fleet", "Mithraic", 
+                   "Auspicious", "Refined", "Blessed", "Toil", "Bountiful", "Loving", "Ridiculous", 
+                   "Necrotic", "Giant", "Empowered", "Ancient", "Sweet", "Moil", "Silky", "Bloody", 
+                   "Shaded", "Precise", "Spiritual", "Headstrong", "Clean", "Fierce", "Heavy", 
+                   "Light", "Perfect", "Neat", "Elegant", "Fine", "Grand", "Hasty", "Rapid", 
+                   "Unreal", "Awkward", "Rich", "Spiked", "Renowned", "Cubic", "Reinforced", 
+                   "Salty", "Treacherous", "Stiff", "Lucky", "Very", "Highly", "Extremely", 
+                   "Absolutely", "Even More", "Smart", "Titanic", "Wise", "Strong", "Unstable", 
+                   "Superior", "Pure", "Holy", "Candied", "Submerged", "Bizarre", "Mythic", 
+                   "Strengthened", "Jaded", "Zealous", "Godly", "Demonic", "Forceful", "Hurtful", 
+                   "Strong", "Unpleasant", "Keen", "Pretty", "Shiny", "Simple", "Strange", "Vivid", 
+                   "Bizarre", "Itchy", "Ominous", "Pleasant", "Pretty", "Shiny", "Simple", "Strange", 
+                   "Vivid", "Awful", "Lush", "Pitiful", "Raider's", "Refurbished", "Festive", 
+                   "Green Thumb", "Rooted", "Blooming", "Earthy", "Mossy", "Milky", "Signature", 
+                   "Unyielding", "Dirty", "Stranded", "Chomp", "Pitchin'", "Glistening", "Sparkling", 
+                   "Prospector's", "Great", "Rugged", "Rustic", "Bustling", "Excellent", "Sturdy", 
+                   "Fortified", "Waxed", "Tempered", "Honored", "Molten", "Hyper", "Frosted", 
+                   "Burning", "Flaky", "Stained", "Icy", "Faceted", "Exquisite", "Thiccc", 
+                   "Charitable", "Coldfused", "Smoldering", "Automaton", "Dullish", "Safeguarded", 
+                   "Edible", "Undead", "Horrendous", "Oasis", "Luckier", "Phantom", "Shiny", 
+                   "Clownfish", "Shark", "Spongy", "Silly", "Dopey", "Waxy", "Luminous", "Luxurious", 
+                   "Tiered", "Chipper", "Corrupted", "Dangerous", "Menacing", "Stellar", "Jaded", 
+                   "Snowy", "Wither", "Slimy", "Bonkers", "Frosty", "Vicious", "Moonglow", 
+                   "Zestful", "Vibrant", "Royal", "Blood-Soaked", "Double-Bit"]
         
         # Remove fragment symbol and everything before it
         item_name = item_name.split('⚚')[-1].strip()
@@ -106,7 +164,11 @@ class FlipFinder:
                 continue
                 
             clean_name = self.get_clean_item_name(auction["item_name"])
-            if clean_name in self.inflated_items or clean_name in self.avg_price_rejected_items:  # Check both sets
+            
+            # Skip generic items and previously rejected items
+            if (clean_name in IGNORED_ITEMS or 
+                clean_name in self.inflated_items or 
+                clean_name in self.avg_price_rejected_items):
                 continue
                 
             filtered.append(auction)
@@ -114,7 +176,18 @@ class FlipFinder:
         return filtered
 
     def find_best_flip(self):
+        # Check cooldown
+        current_time = time.time()
+        if current_time - self.last_scan_time < self.scan_cooldown:
+            time.sleep(self.scan_cooldown - (current_time - self.last_scan_time))
+        
+        self.last_scan_time = current_time
+        
         all_auctions = self.auction_fetcher.fetch_all_auctions()
+        if not all_auctions:
+            logging.error("Failed to fetch auctions. Retrying in next cycle.")
+            return None
+            
         filtered_auctions = self.filter_auctions(all_auctions)
 
         item_groups = defaultdict(list)
@@ -156,13 +229,12 @@ class FlipFinder:
                 if price_data and "three_day_avg_lowest_bin" in price_data:
                     three_day_avg = price_data["three_day_avg_lowest_bin"]
                     if second_lowest_price > three_day_avg * 1.2:
-                        # Add to both sets
                         self.inflated_items.add(clean_item_name)
                         self.avg_price_rejected_items.add(clean_item_name)
-                        logging.info(f"Added {clean_item_name} to rejected items lists due to high price compared to 3-day average.")
+                        logging.debug(f"Added {clean_item_name} to rejected items lists due to high price compared to 3-day average.")
                         continue
                 else:
-                    logging.warning(f"Could not fetch 3-day average for {clean_item_name}.")
+                    logging.debug(f"Could not fetch 3-day average for {clean_item_name}.")
                     continue
 
                 if potential_profit > best_profit:
@@ -218,23 +290,51 @@ def main():
     flip_finder = FlipFinder(params)
 
     print("\nStarting continuous flip search. Press Ctrl+C to stop.")
+    print("Logging to flip_finder.log for detailed debugging information.")
+    
+    consecutive_errors = 0
+    max_consecutive_errors = 3
+    error_cooldown = 30  # seconds
 
     try:
         while True:
-            start_time = time.time()
-            print(f"\nFetching auctions at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
-            best_flip = flip_finder.find_best_flip()
-            if best_flip:
-                print_flip_info(best_flip)
-                winsound.Beep(1000, 500)  # Beep when a flip is found
-            else:
-                print("No suitable flips found.")
-            
-            # elapsed_time = time.time() - start_time
-            # if elapsed_time < 1:
-            #     time.sleep(1 - elapsed_time)  # Ensure we wait at least 1 second between scans
+            try:
+                start_time = time.time()
+                print(f"\nFetching auctions at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
+                best_flip = flip_finder.find_best_flip()
+                
+                if best_flip:
+                    print_flip_info(best_flip)
+                    winsound.Beep(1000, 500)  # Beep when a flip is found
+                    consecutive_errors = 0  # Reset error counter on success
+                else:
+                    print("No suitable flips found.")
+                
+                # Calculate remaining time for rate limiting
+                elapsed_time = time.time() - start_time
+                if elapsed_time < 1:
+                    time.sleep(1 - elapsed_time)
+                    
+            except requests.exceptions.RequestException as e:
+                consecutive_errors += 1
+                logging.error(f"Network error occurred: {e}")
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    logging.warning(f"Too many consecutive errors. Cooling down for {error_cooldown} seconds...")
+                    time.sleep(error_cooldown)
+                    consecutive_errors = 0
+                continue
+                
+            except Exception as e:
+                logging.error(f"Unexpected error occurred: {e}")
+                time.sleep(1)
+                continue
+                
     except KeyboardInterrupt:
         print("\nStopping the flip calculator. Thank you for using!")
+    except Exception as e:
+        logging.critical(f"Critical error occurred: {e}")
+        raise
 
 if __name__ == "__main__":
     main()
