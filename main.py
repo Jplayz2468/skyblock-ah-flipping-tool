@@ -228,9 +228,9 @@ def main():
             else:
                 print("No suitable flips found.")
             
-            elapsed_time = time.time() - start_time
-            if elapsed_time < 1:
-                time.sleep(1 - elapsed_time)  # Ensure we wait at least 1 second between scans
+            # elapsed_time = time.time() - start_time
+            # if elapsed_time < 1:
+            #     time.sleep(1 - elapsed_time)  # Ensure we wait at least 1 second between scans
     except KeyboardInterrupt:
         print("\nStopping the flip calculator. Thank you for using!")
 
