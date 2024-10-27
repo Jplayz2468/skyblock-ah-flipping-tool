@@ -159,7 +159,7 @@ class FlipFinder:
             
             if auction.get("starting_bid", 0) > self.params["max_buy_price"]:
                 continue
-                
+            
             if "attribute shard" in auction.get("item_name", "").lower():
                 continue
                 
@@ -284,7 +284,7 @@ def main():
         "min_profit": 1000000,
         "max_buy_price": 25000000,
         "max_profit_margin": 1000,
-        "min_sales_volume": 5
+        "min_sales_volume": 10
     }
 
     flip_finder = FlipFinder(params)
