@@ -1,24 +1,47 @@
 import os
-import sys
-import winreg
-import shutil
-from datetime import datetime
+import base64
 import PyInstaller.__main__
 
-class InstallerBuilder:
-    def __init__(self, main_script):
-        self.app_name = 'AhFlippingTool'
-        self.main_script = main_script
-        self.install_dir = os.path.join(os.getenv('PROGRAMFILES'), 'AhFlippingTool').replace('\\', '\\\\')
+# First, create and build the main program
+main_program = """
+import tkinter as tk
+from tkinter import ttk
+
+class AhFlippingTool:
+    def __init__(self, root):
+        self.root = root
+        root.title("AhFlipping Tool")
+        root.geometry("800x600")
         
-    def create_installer(self):
-        installer_script = f"""
+        # Create main frame
+        self.frame = ttk.Frame(root, padding="10")
+        self.frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Add title
+        ttk.Label(self.frame, text="AhFlipping Tool", font=('Arial', 24)).grid(row=0, column=0, pady=20)
+        
+        # Add content here
+        ttk.Label(self.frame, text="Your flipping tool content goes here").grid(row=1, column=0, pady=20)
+
+def main():
+    root = tk.Tk()
+    app = AhFlippingTool(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Create the installer script
+installer_code = """
 import os
 import sys
-import winreg
-import shutil
+import base64
 import ctypes
 from tkinter import Tk, Label, Button, messagebox
+
+# The main program will be embedded here
+EMBEDDED_EXE = '{}'
 
 def is_admin():
     try:
@@ -33,146 +56,32 @@ def run_as_admin():
 
 def install():
     try:
-        # Ensure we're running as admin
         if not is_admin():
             run_as_admin()
             return
 
-        install_dir = r'{self.install_dir}'
-        
-        # Create installation directory
+        # Create program directory
+        install_dir = os.path.join(os.getenv('PROGRAMFILES'), 'AhFlippingTool')
         os.makedirs(install_dir, exist_ok=True)
         
-        # Get the path of the currently running executable
-        if getattr(sys, 'frozen', False):
-            current_exe = sys.executable
-        else:
-            current_exe = sys.argv[0]
-            
-        # Get the directory containing main.py (same as installer location)
-        source_dir = os.path.dirname(os.path.abspath(current_exe))
-        main_script_path = os.path.join(source_dir, '{self.main_script}')
-        
-        # Copy program files
-        if os.path.exists(main_script_path):
-            shutil.copy2(main_script_path, install_dir)
-            shutil.copy2(current_exe, install_dir)
-        else:
-            raise FileNotFoundError(f"Could not find {self.main_script}")
-        
-        # Create uninstaller
-        create_uninstaller(install_dir)
-        
-        # Add to Windows registry
-        add_to_registry()
-        
-        # Create start menu shortcut
-        create_shortcut()
-        
+        # Extract and save the program
+        exe_path = os.path.join(install_dir, 'AhFlippingTool.exe')
+        with open(exe_path, 'wb') as f:
+            f.write(base64.b64decode(EMBEDDED_EXE))
+
+        # Create shortcut in Start Menu
+        start_menu_path = os.path.join(
+            os.getenv('PROGRAMDATA'),
+            'Microsoft\\Windows\\Start Menu\\Programs',
+            'AhFlippingTool.lnk'
+        )
+        with open(start_menu_path, 'w') as f:
+            f.write(exe_path)
+
         messagebox.showinfo('Success', 'AhFlippingTool has been installed successfully!')
+        
     except Exception as e:
         messagebox.showerror('Error', f'Installation failed: {{str(e)}}')
-
-def create_uninstaller(install_dir):
-    uninstaller = os.path.join(install_dir, 'uninstall.exe')
-    uninstall_code = r'''
-import os
-import sys
-import winreg
-import shutil
-import ctypes
-from tkinter import Tk, Label, Button, messagebox
-
-def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
-
-def run_as_admin():
-    if not is_admin():
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-        sys.exit()
-
-def uninstall():
-    try:
-        if not is_admin():
-            run_as_admin()
-            return
-            
-        # Remove registry entries
-        try:
-            winreg.DeleteKey(
-                winreg.HKEY_LOCAL_MACHINE,
-                r'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\AhFlippingTool'
-            )
-        except WindowsError:
-            pass
-        
-        # Remove installation directory
-        install_dir = os.path.dirname(os.path.abspath(sys.executable))
-        os.chdir(os.path.dirname(install_dir))  # Move out of the directory before deleting
-        shutil.rmtree(install_dir, ignore_errors=True)
-        
-        # Remove start menu shortcut
-        shortcut_path = os.path.join(
-            os.getenv('PROGRAMDATA'),
-            'Microsoft\\Windows\\Start Menu\\Programs',
-            'AhFlippingTool.lnk'
-        )
-        try:
-            if os.path.exists(shortcut_path):
-                os.remove(shortcut_path)
-        except:
-            pass
-            
-        messagebox.showinfo('Success', 'AhFlippingTool has been uninstalled successfully!')
-        sys.exit(0)
-    except Exception as e:
-        messagebox.showerror('Error', f'Failed to uninstall: {{str(e)}}')
-
-if __name__ == '__main__':
-    root = Tk()
-    root.withdraw()  # Hide the main window
-    uninstall()
-'''
-    with open(uninstaller, 'w') as f:
-        f.write(uninstall_code)
-
-def add_to_registry():
-    key_path = r'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\AhFlippingTool'
-    
-    try:
-        key = winreg.CreateKeyEx(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_WRITE)
-        winreg.SetValueEx(key, 'DisplayName', 0, winreg.REG_SZ, 'AhFlippingTool')
-        winreg.SetValueEx(key, 'Publisher', 0, winreg.REG_SZ, 'AhFlippingTool')
-        winreg.SetValueEx(key, 'UninstallString', 0, winreg.REG_SZ, 
-                         os.path.join(r'{self.install_dir}', 'uninstall.exe'))
-        winreg.CloseKey(key)
-    except Exception as e:
-        messagebox.showerror('Error', f'Failed to add registry entries: {{str(e)}}')
-
-def create_shortcut():
-    try:
-        import win32com.client
-        shell = win32com.client.Dispatch("WScript.Shell")
-        shortcut_path = os.path.join(
-            os.getenv('PROGRAMDATA'),
-            'Microsoft\\Windows\\Start Menu\\Programs',
-            'AhFlippingTool.lnk'
-        )
-        shortcut = shell.CreateShortCut(shortcut_path)
-        shortcut.Targetpath = os.path.join(r'{self.install_dir}', '{self.main_script}')
-        shortcut.save()
-    except:
-        # Fallback method if win32com is not available
-        shortcut_path = os.path.join(
-            os.getenv('PROGRAMDATA'),
-            'Microsoft\\Windows\\Start Menu\\Programs',
-            'AhFlippingTool.lnk'
-        )
-        with open(shortcut_path, 'w') as f:
-            f.write(os.path.join(r'{self.install_dir}', '{self.main_script}'))
 
 if __name__ == '__main__':
     root = Tk()
@@ -185,29 +94,49 @@ if __name__ == '__main__':
     
     root.mainloop()
 """
-        
-        # Create the installer script
-        installer_path = 'AhFlippingTool_Setup.py'
-        with open(installer_path, 'w') as f:
-            f.write(installer_script)
-        
-        # Create the executable
-        PyInstaller.__main__.run([
-            installer_path,
-            '--onefile',
-            '--noconsole',
-            '--clean',
-            '--name=AhFlippingTool_Setup',
-            '--uac-admin'  # Request admin privileges
-        ])
-        
-        # Clean up the temporary .py file
-        os.remove(installer_path)
-        
-        return os.path.join('dist', 'AhFlippingTool_Setup.exe')
+
+def build_program_and_installer():
+    # First, create and build the main program
+    print("Building main program...")
+    with open('ahflipping.py', 'w') as f:
+        f.write(main_program)
+    
+    PyInstaller.__main__.run([
+        'ahflipping.py',
+        '--onefile',
+        '--noconsole',
+        '--clean',
+        '--name=AhFlippingTool'
+    ])
+    
+    # Read the built program exe
+    print("Reading program executable...")
+    with open('dist/AhFlippingTool.exe', 'rb') as f:
+        exe_data = base64.b64encode(f.read()).decode('utf-8')
+    
+    # Create the installer with the embedded program
+    print("Creating installer...")
+    with open('installer.py', 'w') as f:
+        f.write(installer_code.format(exe_data))
+    
+    # Build the installer
+    PyInstaller.__main__.run([
+        'installer.py',
+        '--onefile',
+        '--noconsole',
+        '--clean',
+        '--name=AhFlippingTool_Setup',
+        '--uac-admin'
+    ])
+    
+    # Clean up temporary files
+    print("Cleaning up...")
+    os.remove('ahflipping.py')
+    os.remove('installer.py')
+    if os.path.exists('AhFlippingTool.exe'):
+        os.remove('AhFlippingTool.exe')
+    
+    print("Build complete! Your installer is in the dist folder.")
 
 if __name__ == '__main__':
-    # Example usage
-    builder = InstallerBuilder(main_script='main.py')
-    installer_path = builder.create_installer()
-    print(f'Installer created: {installer_path}')
+    build_program_and_installer()
