@@ -284,7 +284,7 @@ def main():
         "min_profit": 1000000,
         "max_buy_price": 25000000,
         "max_profit_margin": 1000,
-        "min_sales_volume": 10
+        "min_sales_volume": 5
     }
 
     flip_finder = FlipFinder(params)
