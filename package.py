@@ -9,7 +9,7 @@ class InstallerBuilder:
     def __init__(self, main_script):
         self.app_name = 'AhFlippingTool'
         self.main_script = main_script
-        self.install_dir = os.path.join(os.getenv('PROGRAMFILES'), 'AhFlippingTool')
+        self.install_dir = os.path.join(os.getenv('PROGRAMFILES'), 'AhFlippingTool').replace('\\', '\\\\')
         
     def create_installer(self):
         installer_script = f"""
@@ -42,8 +42,7 @@ def install():
 
 def create_uninstaller(install_dir):
     uninstaller = os.path.join(install_dir, 'uninstall.exe')
-    with open(uninstaller, 'w') as f:
-        f.write('''
+    uninstall_code = r'''
 import os
 import winreg
 import shutil
@@ -77,7 +76,9 @@ def uninstall():
 
 if __name__ == '__main__':
     uninstall()
-        ''')
+'''
+    with open(uninstaller, 'w') as f:
+        f.write(uninstall_code)
 
 def add_to_registry():
     key_path = r'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\AhFlippingTool'
