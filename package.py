@@ -2,6 +2,36 @@ import os
 import base64
 import PyInstaller.__main__
 
+# First, create and build the main program
+main_program = """
+import tkinter as tk
+from tkinter import ttk
+
+class AhFlippingTool:
+    def __init__(self, root):
+        self.root = root
+        root.title("AhFlipping Tool")
+        root.geometry("800x600")
+        
+        # Create main frame
+        self.frame = ttk.Frame(root, padding="10")
+        self.frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Add title
+        ttk.Label(self.frame, text="AhFlipping Tool", font=('Arial', 24)).grid(row=0, column=0, pady=20)
+        
+        # Add content here
+        ttk.Label(self.frame, text="Your flipping tool content goes here").grid(row=1, column=0, pady=20)
+
+def main():
+    root = tk.Tk()
+    app = AhFlippingTool(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
+"""
+
 # Create the installer script
 installer_code = """
 import os
@@ -66,10 +96,13 @@ if __name__ == '__main__':
 """
 
 def build_program_and_installer():
-    # First, build the main program from main.py
+    # First, create and build the main program
     print("Building main program...")
+    with open('ahflipping.py', 'w') as f:
+        f.write(main_program)
+    
     PyInstaller.__main__.run([
-        'main.py',
+        'ahflipping.py',
         '--onefile',
         '--noconsole',
         '--clean',
@@ -98,7 +131,10 @@ def build_program_and_installer():
     
     # Clean up temporary files
     print("Cleaning up...")
+    os.remove('ahflipping.py')
     os.remove('installer.py')
+    if os.path.exists('AhFlippingTool.exe'):
+        os.remove('AhFlippingTool.exe')
     
     print("Build complete! Your installer is in the dist folder.")
 
