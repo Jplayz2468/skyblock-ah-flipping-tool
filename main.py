@@ -287,6 +287,21 @@ def main():
         "min_sales_volume": 5
     }
 
+    for element in params:
+        passon = False
+        while passon == False:
+            try:
+                value = input(f"Value for \"{element}\" (def for default): ")
+                if value == "def":
+                    passon = True
+                value = str(value)
+                passon = True
+            except Exception as E:
+                pass
+        if value != "def":
+            params[element] = value
+
+
     flip_finder = FlipFinder(params)
 
     print("\nStarting continuous flip search. Press Ctrl+C to stop.")
