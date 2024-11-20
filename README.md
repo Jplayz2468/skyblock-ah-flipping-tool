@@ -46,3 +46,5 @@ Happy flipping!
 ## Test API Key
 
 MazH2JtZeLCxIydNaWSaqHEpZvy3p1TS
+
+(This key is not at all important or dangerous if misused. It is openly available in my code and is only used for communication between client and server.)
