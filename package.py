@@ -68,7 +68,8 @@ def main():
         'main.py',
         '--onefile',
         '--clean',
-        f'--name={APP_NAME}'
+        f'--name={APP_NAME}',
+        '--noconsole'  # Remove this line if you want to show console
     ])
     
     print("Creating installer...")
