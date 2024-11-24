@@ -218,9 +218,9 @@ class FlipFinder:
                 profit_margin <= self.params["max_profit_margin"]):
 
                 price_data = self.price_fetcher.fetch_price_data(clean_item_name)
-                if price_data and "three_day_avg_lowest_bin" in price_data:
-                    three_day_avg = price_data["three_day_avg_lowest_bin"]
-                    if second_lowest_price > three_day_avg * 1.2:
+                if price_data and "seven_day_avg_lowest_bin" in price_data:
+                    seven_day_avg = price_data["seven_day_avg_lowest_bin"]
+                    if second_lowest_price > seven_day_avg * 1.2:
                         self.inflated_items.add(clean_item_name)
                         self.avg_price_rejected_items.add(clean_item_name)
                         logging.debug(f"Added {clean_item_name} to rejected items lists due to high price compared to 3-day average.")
@@ -236,7 +236,7 @@ class FlipFinder:
                         "clean_item_name": clean_item_name,
                         "lowest_price": lowest_auction["starting_bid"],
                         "second_lowest_price": second_lowest_price,
-                        "three_day_avg": three_day_avg,
+                        "seven_day_avg": seven_day_avg,
                         "potential_profit": potential_profit,
                         "profit_margin": profit_margin,
                         "auction_id": lowest_auction["uuid"],
@@ -255,7 +255,7 @@ def print_flip_info(flip):
     print(f"Clean Item Name: {flip['clean_item_name']}")
     print(f"Lowest price: {flip['lowest_price']:,}")
     print(f"Second lowest price: {flip['second_lowest_price']:,}")
-    print(f"3-day average lowest BIN: {flip['three_day_avg']:,.2f}")
+    print(f"3-day average lowest BIN: {flip['seven_day_avg']:,.2f}")
     print(f"Potential profit: {flip['potential_profit']:,}")
     print(f"Profit margin: {flip['profit_margin']:.2f}%")
     print(f"Sales volume: {flip['sales_volume']}")
