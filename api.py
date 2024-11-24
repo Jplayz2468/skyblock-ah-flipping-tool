@@ -55,10 +55,10 @@ def process_auctions():
             if item_id not in data:
                 data[item_id] = {"prices": [], "last_updated": None}
             
-            # Keep existing prices that are less than 3 days old
+            # Keep existing prices that are less than 7 days old
             data[item_id]["prices"] = [
                 (t, p) for t, p in data[item_id]["prices"]
-                if (current_time - t).total_seconds() < 259200  # 3 days in seconds
+                if (current_time - t).total_seconds() < 259200 * 2.333  # 7 days in seconds
             ]
             data[item_id]["prices"].append((current_time, price))
             data[item_id]["last_updated"] = current_time
@@ -68,7 +68,7 @@ def process_auctions():
         for item_id in list(data.keys()):
             data[item_id]["prices"] = [
                 (t, p) for t, p in data[item_id]["prices"]
-                if (current_time - t).total_seconds() < 259200
+                if (current_time - t).total_seconds() < 259200 * 2.333
             ]
             if not data[item_id]["prices"]:
                 items_to_remove.append(item_id)
@@ -132,7 +132,7 @@ def load_data():
                     prices = [
                         (datetime.fromisoformat(t), p) 
                         for t, p in item_data["prices"]
-                        if (current_time - datetime.fromisoformat(t)).total_seconds() < 259200
+                        if (current_time - datetime.fromisoformat(t)).total_seconds() < 259200 * 2.333
                     ]
                 except Exception as e:
                     print(f"Error processing prices for {item_id}: {str(e)}")
@@ -200,8 +200,8 @@ def background_task():
 @app.route('/')
 def home():
     return render_template_string("""
-    <h1>Hypixel 3-Day Average Lowest BIN Tracker</h1>
-    <p>Use the /item/[key]/[item_name] endpoint to get the 3-day average lowest BIN for a specific item.</p>
+    <h1>Hypixel 7-Day Average Lowest BIN Tracker</h1>
+    <p>Use the /item/[key]/[item_name] endpoint to get the 7-day average lowest BIN for a specific item.</p>
     <p>Example: <a href="/item/MazH2JtZeLCxIydNaWSaqHEpZvy3p1TS/Hyperion">/item/[key]/Hyperion</a></p>
     """)
 
@@ -224,11 +224,11 @@ def item_price(key, item_name):
     if not recent_prices:
         return jsonify({"error": "No recent data available"}), 404
 
-    three_day_avg = sum(price for _, price in recent_prices) / len(recent_prices)
+    seven_day_avg = sum(price for _, price in recent_prices) / len(recent_prices)
     
     return jsonify({
         "item_name": item_name,
-        "three_day_avg_lowest_bin": three_day_avg,
+        "seven_day_avg_lowest_bin": seven_day_avg,
         "last_updated": item_data["last_updated"].isoformat(),
         "data_points": len(recent_prices),
         "oldest_data_point": min(t.isoformat() for t, _ in recent_prices),
