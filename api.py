@@ -218,7 +218,7 @@ def item_price(key, item_name):
     current_time = datetime.now()
     recent_prices = [
         (t, p) for t, p in item_data["prices"]
-        if (current_time - t).total_seconds() < 259200
+        if (current_time - t).total_seconds() < 259200 * 2.333
     ]
 
     if not recent_prices:
