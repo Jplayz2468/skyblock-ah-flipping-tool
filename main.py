@@ -66,6 +66,7 @@ class PriceFetcher:
         self.failed_items = set()  # Track items that failed price fetch
 
     def fetch_price_data(self, item_name):
+        print(f"Fetching average lowest BIN for {item_name}...")
         if item_name in self.failed_items:
             return None
             
@@ -223,10 +224,10 @@ class FlipFinder:
                     if second_lowest_price > seven_day_avg * 1.2:
                         self.inflated_items.add(clean_item_name)
                         self.avg_price_rejected_items.add(clean_item_name)
-                        logging.debug(f"Added {clean_item_name} to rejected items lists due to high price compared to 3-day average.")
+                        logging.debug(f"Added {clean_item_name} to rejected items lists due to high price compared to 7-day average.")
                         continue
                 else:
-                    logging.debug(f"Could not fetch 3-day average for {clean_item_name}.")
+                    logging.debug(f"Could not fetch 7-day average for {clean_item_name}.")
                     continue
 
                 if potential_profit > best_profit:
@@ -255,7 +256,7 @@ def print_flip_info(flip):
     print(f"Clean Item Name: {flip['clean_item_name']}")
     print(f"Lowest price: {flip['lowest_price']:,}")
     print(f"Second lowest price: {flip['second_lowest_price']:,}")
-    print(f"3-day average lowest BIN: {flip['seven_day_avg']:,.2f}")
+    print(f"7-day average lowest BIN: {flip['seven_day_avg']:,.2f}")
     print(f"Potential profit: {flip['potential_profit']:,}")
     print(f"Profit margin: {flip['profit_margin']:.2f}%")
     print(f"Sales volume: {flip['sales_volume']}")
@@ -286,8 +287,9 @@ def main():
                 value = input(f"Value for \"{element}\" (def for default): ")
                 if value == "def":
                     passon = True
-                value = str(value)
-                passon = True
+                if not passon:
+                    value = int(value)
+                    passon = True
             except Exception as E:
                 pass
         if value != "def":
