@@ -159,8 +159,7 @@ class FlipFinder:
             clean_name = self.get_clean_item_name(auction["item_name"])
             
             # Skip generic items and previously rejected items
-            if (clean_name in IGNORED_ITEMS or 
-                clean_name in self.inflated_items or 
+            if (clean_name in self.inflated_items or 
                 clean_name in self.avg_price_rejected_items):
                 continue
                 
