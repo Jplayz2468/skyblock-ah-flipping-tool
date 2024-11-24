@@ -24,13 +24,6 @@ HYPIXEL_API_BASE_URL = "https://api.hypixel.net"
 PRICE_API_BASE_URL = "http://195.201.18.228:5000/item"
 API_KEY = "MazH2JtZeLCxIydNaWSaqHEpZvy3p1TS"
 
-# Known generic item names to ignore
-IGNORED_ITEMS = {
-    "Helmet", "Chestplate", "Leggings", "Boots",
-    "Sword", "Bow", "Rod", "Pickaxe", "Axe", "Shovel",
-    "Hoe", "Shears", "Drill", "Generator"
-}
-
 class AuctionFetcher:
     def __init__(self):
         self.session = requests.Session()
@@ -73,7 +66,7 @@ class PriceFetcher:
         self.failed_items = set()  # Track items that failed price fetch
 
     def fetch_price_data(self, item_name):
-        if item_name in self.failed_items or item_name in IGNORED_ITEMS:
+        if item_name in self.failed_items:
             return None
             
         try:
