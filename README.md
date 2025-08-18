@@ -1,3 +1,8 @@
+# IMPORTANT: this project was a small side thing I did a while ago and is
+# NO LONGER MAINTAINED.
+# Any issues or feedback will be IGNORED.
+# Feel free to improve it on your own time!
+
 # Skyblock AH Flipping Tool
 
 A simple tool to help you find profitable flips in the Hypixel Skyblock Auction House. Does not require modded Minecraft or any specific version.
